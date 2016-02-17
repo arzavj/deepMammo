@@ -29,13 +29,26 @@ def get_cropped_mass(filename, filename_without_extension):
     rows, cols = np.where(mask == 255)
     startx, starty = np.min(rows), np.min(cols)
     endx, endy = np.max(rows), np.max(cols)
-    cropped_image = original_image[startx-padding:endx+1+padding, starty-padding:endy+1+padding]
+    startx = max(0, startx-padding)
+    endx = min(endx+1+padding, original_image.shape[0])
+    starty = max(0, starty-padding)
+    endy = min(endy+1+padding, original_image.shape[1])
+    if starty == 0:
+        y_indices = np.where(original_image[startx:startx+1, 0:padding] == 65535)[1]
+        if y_indices.shape[0] != 0:
+            starty = np.max(y_indices) + 1
+    if endy == original_image.shape[1]:
+        y_indices = np.where(original_image[startx:startx+1, endy-padding:endy] == 65535)[1]
+        if y_indices.shape[0] != 0:
+            endy = np.min(y_indices) + endy - padding
+    cropped_image = original_image[startx:endx, starty:endy]
     return cropped_image
 
 def write_mass_dataset(nonmask_filenames):
     if not os.path.exists(output_dataset_dir):
         os.makedirs(output_dataset_dir)
     for filename, filename_without_extension in nonmask_filenames:
+        print filename
         cropped_mass = get_cropped_mass(filename, filename_without_extension)
         output_full_path = join(output_dataset_dir, filename)
         io.imsave(output_full_path, cropped_mass, plugin='tifffile')

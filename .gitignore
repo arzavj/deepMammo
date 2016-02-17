@@ -64,3 +64,4 @@ target/
 *.tif
 *_dataset/
 mass_case_description.csv
+*.zip
