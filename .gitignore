@@ -65,3 +65,5 @@ target/
 *_dataset/
 mass_case_description.csv
 *.zip
+credentials.csv
+aws_gpu.pem
