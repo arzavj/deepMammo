@@ -2,12 +2,15 @@ import os
 from os import listdir
 from os.path import isfile, join
 import pandas as pd
+import sys
 
-images_dir = "mass_50_padding_dataset"
 df = pd.read_csv('mass_case_description.csv')
 pathology_to_label = {'MALIGNANT': 1, 'BENIGN': 0, 'BENIGN_WITHOUT_CALLBACK': 0}
 
-def main():
+def main(args):
+    images_dir = args[1]
+    if images_dir.endswith("/"):
+        images_dir = images_dir[:-1]
     label_file = open(images_dir + "_labels.txt", "w")
     for f in listdir(images_dir):
         if isfile(join(images_dir, f)):
@@ -21,4 +24,4 @@ def main():
     label_file.close()
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)

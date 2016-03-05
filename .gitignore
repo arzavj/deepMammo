@@ -67,3 +67,6 @@ mass_case_description.csv
 *.zip
 credentials.csv
 aws_gpu.pem
+*_labels.txt
+*.tar.gz
+deep_mammo/*

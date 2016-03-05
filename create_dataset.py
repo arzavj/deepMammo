@@ -9,8 +9,12 @@ from os.path import isfile, join
 
 padding = 50 # pixels all around
 original_dataset_dir = "original_dataset"
-output_dataset_dir = "mass_%d_padding_dataset" % padding
-
+train_output_dataset_dir = "mass_%d_padding_dataset_train" % padding
+val_output_dataset_dir = "mass_%d_padding_dataset_val" % padding
+test_output_dataset_dir = "mass_%d_padding_dataset_test" % padding
+train_fraction = 0.7
+val_fraction = 0.1
+test_fraction = 1.0 - train_fraction - val_fraction
 
 def get_nonmask_filenames():
     filenames = []
@@ -44,18 +48,34 @@ def get_cropped_mass(filename, filename_without_extension):
     cropped_image = original_image[startx:endx, starty:endy]
     return cropped_image
 
-def write_mass_dataset(nonmask_filenames):
+def create_dir_if_not_exists(output_dataset_dir):
     if not os.path.exists(output_dataset_dir):
         os.makedirs(output_dataset_dir)
+
+def write_mass_dataset(nonmask_filenames, output_dataset_dir):
     for filename, filename_without_extension in nonmask_filenames:
         print filename
         cropped_mass = get_cropped_mass(filename, filename_without_extension)
         output_full_path = join(output_dataset_dir, filename)
         io.imsave(output_full_path, cropped_mass, plugin='tifffile')
 
+def write_mass_datasets(nonmask_filenames):
+    create_dir_if_not_exists(train_output_dataset_dir)
+    create_dir_if_not_exists(val_output_dataset_dir)
+    create_dir_if_not_exists(test_output_dataset_dir)
+    num_files = len(nonmask_filenames)
+    train_split_idx = int(train_fraction * num_files)
+    val_split_idx = int(val_fraction * num_files) + train_split_idx
+    train_filenames = nonmask_filenames[:train_split_idx]
+    val_filenames = nonmask_filenames[train_split_idx:val_split_idx]
+    test_filenames = nonmask_filenames[val_split_idx:]
+    write_mass_dataset(train_filenames, train_output_dataset_dir)
+    write_mass_dataset(val_filenames, val_output_dataset_dir)
+    write_mass_dataset(test_filenames, test_output_dataset_dir)
+
 def main():
     nonmask_filenames = get_nonmask_filenames()
-    write_mass_dataset(nonmask_filenames)
+    write_mass_datasets(nonmask_filenames)
   
 # filename = 'P_00001_LEFT_CC_1.tif'
 # test_image = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
