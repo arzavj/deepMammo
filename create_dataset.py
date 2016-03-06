@@ -7,11 +7,11 @@ from skimage import io
 from os import listdir
 from os.path import isfile, join
 
-padding = 50 # pixels all around
+padding = 2 # pixels all around
 original_dataset_dir = "original_dataset"
-train_output_dataset_dir = "mass_%d_padding_dataset_train" % padding
-val_output_dataset_dir = "mass_%d_padding_dataset_val" % padding
-test_output_dataset_dir = "mass_%d_padding_dataset_test" % padding
+train_output_dataset_dir = "mass_%dx_padding_dataset_train" % padding
+val_output_dataset_dir = "mass_%dx_padding_dataset_val" % padding
+test_output_dataset_dir = "mass_%dx_padding_dataset_test" % padding
 train_fraction = 0.7
 val_fraction = 0.1
 test_fraction = 1.0 - train_fraction - val_fraction
@@ -33,18 +33,20 @@ def get_cropped_mass(filename, filename_without_extension):
     rows, cols = np.where(mask == 255)
     startx, starty = np.min(rows), np.min(cols)
     endx, endy = np.max(rows), np.max(cols)
-    startx = max(0, startx-padding)
-    endx = min(endx+1+padding, original_image.shape[0])
-    starty = max(0, starty-padding)
-    endy = min(endy+1+padding, original_image.shape[1])
+    xpadding = (endx - startx) / 2
+    ypadding = (endy - starty) / 2
+    startx = max(0, startx-xpadding)
+    endx = min(endx+1+xpadding, original_image.shape[0])
+    starty = max(0, starty-ypadding)
+    endy = min(endy+1+ypadding, original_image.shape[1])
     if starty == 0:
-        y_indices = np.where(original_image[startx:startx+1, 0:padding] == 65535)[1]
+        y_indices = np.where(original_image[startx:startx+1, 0:ypadding] == 65535)[1]
         if y_indices.shape[0] != 0:
             starty = np.max(y_indices) + 1
     if endy == original_image.shape[1]:
-        y_indices = np.where(original_image[startx:startx+1, endy-padding:endy] == 65535)[1]
+        y_indices = np.where(original_image[startx:startx+1, endy-ypadding:endy] == 65535)[1]
         if y_indices.shape[0] != 0:
-            endy = np.min(y_indices) + endy - padding
+            endy = np.min(y_indices) + endy - ypadding
     cropped_image = original_image[startx:endx, starty:endy]
     return cropped_image
 
@@ -58,6 +60,7 @@ def write_mass_dataset(nonmask_filenames, output_dataset_dir):
         cropped_mass = get_cropped_mass(filename, filename_without_extension)
         output_full_path = join(output_dataset_dir, filename)
         io.imsave(output_full_path, cropped_mass, plugin='tifffile')
+        break
 
 def write_mass_datasets(nonmask_filenames):
     create_dir_if_not_exists(train_output_dataset_dir)
