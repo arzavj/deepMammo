@@ -4,13 +4,13 @@ from os.path import isfile, join
 import pandas as pd
 import sys
 
-padding = 50
+padding = 2
 df = pd.read_csv('mass_case_description.csv')
 pathology_to_label = {'MALIGNANT': 1, 'BENIGN': 0, 'BENIGN_WITHOUT_CALLBACK': 0}
-original_dataset_dir = "mass_50_padding_dataset"
-train_output_dataset_dir = "mass_%d_padding_dataset_train" % padding
-val_output_dataset_dir = "mass_%d_padding_dataset_val" % padding
-test_output_dataset_dir = "mass_%d_padding_dataset_test" % padding
+original_dataset_dir = "mass_%dx_padding_dataset" % padding
+train_output_dataset_dir = "mass_%dx_padding_dataset_train" % padding
+val_output_dataset_dir = "mass_%dx_padding_dataset_val" % padding
+test_output_dataset_dir = "mass_%dx_padding_dataset_test" % padding
 train_fraction = 0.8
 val_fraction = 0.1
 test_fraction = 1.0 - train_fraction - val_fraction
