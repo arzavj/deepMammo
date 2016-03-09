@@ -8,6 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 import os
+from optparse import OptionParser
+
 # display plots in this notebook
 get_ipython().magic(u'matplotlib inline')
 
@@ -35,10 +37,6 @@ caffe.set_mode_gpu()
 
 # In[3]:
 
-model_name = "alex_dm-fc_8"
-model_path = caffe_root + "models/deep_mammo/alex_train_val.prototxt"
-pretrained_weights_path = caffe_root + "models/deep_mammo/bvlc_alexnet.caffemodel"
-quick_solver_path = caffe_root + "models/deep_mammo/alex_solver.prototxt"
 weight_dir = caffe_root + "models/deep_mammo/weights"
 pickle_dir = caffe_root + "models/deep_mammo/pickles"
 figures_dir = caffe_root + "models/deep_mammo/figures"
@@ -47,7 +45,7 @@ figures_dir = caffe_root + "models/deep_mammo/figures"
 
 # In[4]:
 
-def run_solvers(niter, solvers, disp_interval=50):
+def run_solvers(niter, solvers, model_name, disp_interval=50):
     """Run solvers for niter iterations,
        returning the loss and accuracy recorded each iteration.
        `solvers` is a list of (name, solver) tuples."""
@@ -94,45 +92,68 @@ def eval_val_accuracy(test_net, test_iters=9):
     return loss, accuracy
 
 
-# In[6]:
 
-niter = 2275 # 200 epochs  # number of iterations to train
+def getOptions():
+    '''
+    Get command-line options and handle errors.
+    :return: command-line options and arguments
+    '''
+    parser = OptionParser()
+    parser.add_option('-i', '--iter', type='int', dest='niter',
+                      default=2275, help='use a dataset of size NUM',
+                      metavar='NUM')
+    parser.add_option('-p', '--prototxt', dest='model_path', default=caffe_root + "models/deep_mammo/alex_train_val.prototxt",
+                      help='path name to train_val prototoxt', metavar='MODEL')
+    parser.add_option('-w', '--weights', dest='weights_path', default=caffe_root + "models/deep_mammo/bvlc_alexnet.caffemodel",
+                      help='path name to weights caffemodel', metavar='MODEL')
+    parser.add_option('-s', '--solver', dest='solver_path', default=caffe_root + "models/deep_mammo/alex_solver.prototxt",
+                      help='path name to solver prototoxt', metavar='MODEL')
+    parser.add_option('-n', '--name', dest='model_name', default="alex_dm-fc_8",
+                      help='unique identifier for model', metavar='MODEL')
+    options, args = parser.parse_args()
 
-quick_solver = caffe.get_solver(quick_solver_path)
-quick_solver.net.copy_from(pretrained_weights_path)
+    return options, args
 
-print 'Running solvers for %d iterations...' % niter
-solvers = [('pretrained', quick_solver)]
-train_loss, train_acc, val_loss, val_acc = run_solvers(niter, solvers)
-print 'Done.'
+def main():
+    options, args = getOptions()
 
-pre_train_loss = train_loss['pretrained']
-pre_train_acc = train_acc['pretrained']
-pre_val_loss = val_loss['pretrained']
-pre_val_acc = val_acc['pretrained']
+    # In[6]:
 
-# Delete solvers to save memory.
-del quick_solver, solvers
+    niter = options.niter # 200 epochs  # number of iterations to train
 
+    quick_solver = caffe.get_solver(options.solver_path)
+    quick_solver.net.copy_from(options.weights_path)
 
-# In[7]:
+    print 'Running solvers for %d iterations...' % niter
+    solvers = [('pretrained', quick_solver)]
+    train_loss, train_acc, val_loss, val_acc = run_solvers(niter, solvers, options.model_name)
+    print 'Done.'
 
-plt.plot(pre_train_loss.T)
-plt.plot(pre_val_loss.T)
-plt.xlabel('Iteration #')
-plt.ylabel('Loss')
-plt.legend(['Train Loss', 'Val Loss'])
-plt.grid()
-plt.savefig('%s/loss_curves_%d_iter_%s.png' %(figures_dir, niter, model_name))
+    pre_train_loss = train_loss['pretrained']
+    pre_train_acc = train_acc['pretrained']
+    pre_val_loss = val_loss['pretrained']
+    pre_val_acc = val_acc['pretrained']
 
+    # Delete solvers to save memory.
+    del quick_solver, solvers
 
-# In[8]:
+    # In[7]:
+    plt.plot(pre_train_loss.T)
+    plt.plot(pre_val_loss.T)
+    plt.xlabel('Iteration #')
+    plt.ylabel('Loss')
+    plt.legend(['Train Loss', 'Val Loss'])
+    plt.grid()
+    plt.savefig('%s/loss_curves_%d_iter_%s.png' % (figures_dir, niter, options.model_name))
 
-plt.plot(pre_train_acc.T)
-plt.plot(pre_val_acc.T)
-plt.xlabel('Iteration #')
-plt.ylabel('Accuracy')
-plt.legend(['Train Accuracy', 'Val Accuracy'])
-plt.grid()
-plt.savefig('%s/accuracy_curves_%d_iter_%s.png' %(figures_dir, niter, model_name))
+    # In[8]:
+    plt.plot(pre_train_acc.T)
+    plt.plot(pre_val_acc.T)
+    plt.xlabel('Iteration #')
+    plt.ylabel('Accuracy')
+    plt.legend(['Train Accuracy', 'Val Accuracy'])
+    plt.grid()
+    plt.savefig('%s/accuracy_curves_%d_iter_%s.png' % (figures_dir, niter, options.model_name))
 
+if __name__ == '__main__':
+    main()
