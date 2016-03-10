@@ -5,19 +5,19 @@
 
 # set up Python environment: numpy for numerical routines, and matplotlib for plotting
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pickle
 import os
 from optparse import OptionParser
-
-# display plots in this notebook
-get_ipython().magic(u'matplotlib inline')
+import lmdb
+from caffe.proto import caffe_pb2
 
 # set display defaults
 plt.rcParams['figure.figsize'] = (10, 10)        # large images
 plt.rcParams['image.interpolation'] = 'nearest'  # don't interpolate: show square pixels
 plt.rcParams['image.cmap'] = 'gray'  # use grayscale output rather than a (potentially misleading) color heatmap
-
 
 # In[2]:
 
@@ -37,13 +37,20 @@ caffe.set_mode_gpu()
 
 # In[3]:
 
-weight_dir = caffe_root + "models/deep_mammo/weights"
+weight_dir = "/mnt/weights/" # caffe_root + "models/deep_mammo/weights"
 pickle_dir = caffe_root + "models/deep_mammo/pickles"
 figures_dir = caffe_root + "models/deep_mammo/figures"
+val_lmdb = caffe_root + "../2x_padding_224x224_dataset/mass_2x_padding_dataset_val_lmdb"
 # net = caffe.Net(model_path, pretrained_weights_path, caffe.TRAIN)
 
 
-# In[4]:
+def save_snapshot(solvers, model_name, niter):
+    weights = {}
+    for name, s in solvers:
+        uid = "%s.%d_iter.%s" % (name, niter, model_name)
+        weights[name] = os.path.join(weight_dir, '%s.caffemodel' % uid)
+        s.net.save(weights[name])
+    return weights
 
 def run_solvers(niter, solvers, model_name, disp_interval=50):
     """Run solvers for niter iterations,
@@ -54,7 +61,7 @@ def run_solvers(niter, solvers, model_name, disp_interval=50):
                  for _ in blobs)
     val_loss, val_acc = ({name: np.zeros(niter) for name, _ in solvers}
                  for _ in blobs)
-    print "#,Solver,TrainBatchLoss,TrainBatchAccuracy,ValLoss,ValAccuracy"
+    snapshot_iter = int(niter / 4)
     for it in range(niter):
         for name, s in solvers:
             s.step(1)  # run a single SGD step in Caffe
@@ -67,15 +74,11 @@ def run_solvers(niter, solvers, model_name, disp_interval=50):
                                     val_loss[n][it], np.round(100*val_acc[n][it]))
                                   for n, _ in solvers)
             print '%3d,%s' % (it, loss_disp)
+        if (it % snapshot_iter) == 0 and it != 0:
+            save_snapshot(solvers, model_name, it)
     # Save the learned weights from all nets.
-    for name, s in solvers:
-        uid = "%s.%d_iter.%s" % (name, niter, model_name)
-        weights_filename = '%s.caffemodel' % uid
-        s.net.save(os.path.join(weight_dir, weights_filename))
-        pickle_filename = '%s.pickle' % uid
-        with open(os.path.join(pickle_dir, pickle_filename), 'w+') as f:
-            pickle.dump([train_loss, train_acc, val_loss, val_acc], f)
-    return train_loss, train_acc, val_loss, val_acc
+    weights = save_snapshot(solvers, model_name, niter)
+    return train_loss, train_acc, val_loss, val_acc, weights
 
 
 # In[5]:
@@ -91,7 +94,28 @@ def eval_val_accuracy(test_net, test_iters=9):
     loss /= test_iters
     return loss, accuracy
 
+def get_val_data():
+    lmdb_env = lmdb.open(val_lmdb)
+    lmdb_txn = lmdb_env.begin()
+    lmdb_cursor = lmdb_txn.cursor()
+    lmdb_cursor.first()
+    datum = caffe_pb2.Datum()
+    y_true = []
+    val_images = []
 
+    for key, value in lmdb_cursor:
+        datum.ParseFromString(value)
+        y_true.append(datum.label)
+        data = caffe.io.datum_to_array(datum)
+        #CxHxW to HxWxC in cv2
+        val_images.append(np.transpose(data, (1,2,0)))
+    return val_images, y_true
+
+def get_val_predictions(deploy_filename, weights_filename):
+    val_images, y_true = get_val_data()
+    classifier = caffe.Classifier(deploy_filename, weights_filename)
+    y_pred = classifier.predict(val_images)
+    return y_true, y_pred
 
 def getOptions():
     '''
@@ -100,16 +124,18 @@ def getOptions():
     '''
     parser = OptionParser()
     parser.add_option('-i', '--iter', type='int', dest='niter',
-                      default=2275, help='use a dataset of size NUM',
+                      default=2844, help='use a dataset of size NUM',
                       metavar='NUM')
     parser.add_option('-p', '--prototxt', dest='model_path', default=caffe_root + "models/deep_mammo/alex_train_val.prototxt",
                       help='path name to train_val prototoxt', metavar='MODEL')
     parser.add_option('-w', '--weights', dest='weights_path', default=caffe_root + "models/deep_mammo/bvlc_alexnet.caffemodel",
-                      help='path name to weights caffemodel', metavar='MODEL')
+                      help='path name to weights caffemodel', metavar='WEIGHTS')
     parser.add_option('-s', '--solver', dest='solver_path', default=caffe_root + "models/deep_mammo/alex_solver.prototxt",
-                      help='path name to solver prototoxt', metavar='MODEL')
+                      help='path name to solver prototoxt', metavar='SOLVER')
     parser.add_option('-n', '--name', dest='model_name', default="alex_dm-fc_8",
-                      help='unique identifier for model', metavar='MODEL')
+                      help='unique identifier for model', metavar='MODEL_NAME')
+    parser.add_option('-d', '--deploy', dest='deploy', default=caffe_root + "models/deep_mammo/alex_deploy.prototxt",
+                      help='path name to deploy prototoxt', metavar='DEPLOY')
     options, args = parser.parse_args()
 
     return options, args
@@ -124,36 +150,16 @@ def main():
     quick_solver = caffe.get_solver(options.solver_path)
     quick_solver.net.copy_from(options.weights_path)
 
+    print "Options: %s" % options
     print 'Running solvers for %d iterations...' % niter
     solvers = [('pretrained', quick_solver)]
-    train_loss, train_acc, val_loss, val_acc = run_solvers(niter, solvers, options.model_name)
-    print 'Done.'
-
-    pre_train_loss = train_loss['pretrained']
-    pre_train_acc = train_acc['pretrained']
-    pre_val_loss = val_loss['pretrained']
-    pre_val_acc = val_acc['pretrained']
-
-    # Delete solvers to save memory.
-    del quick_solver, solvers
-
-    # In[7]:
-    plt.plot(pre_train_loss.T)
-    plt.plot(pre_val_loss.T)
-    plt.xlabel('Iteration #')
-    plt.ylabel('Loss')
-    plt.legend(['Train Loss', 'Val Loss'])
-    plt.grid()
-    plt.savefig('%s/loss_curves_%d_iter_%s.png' % (figures_dir, niter, options.model_name))
-
-    # In[8]:
-    plt.plot(pre_train_acc.T)
-    plt.plot(pre_val_acc.T)
-    plt.xlabel('Iteration #')
-    plt.ylabel('Accuracy')
-    plt.legend(['Train Accuracy', 'Val Accuracy'])
-    plt.grid()
-    plt.savefig('%s/accuracy_curves_%d_iter_%s.png' % (figures_dir, niter, options.model_name))
+    train_loss, train_acc, val_loss, val_acc, weights = run_solvers(niter, solvers, options.model_name)
+    
+    
+    y_true, y_pred = get_val_predictions(options.deploy, weights['pretrained'])
+    pickle_filename = "%d_iter.%s.pickle" % (niter, options.model_name)
+    with open(os.path.join(pickle_dir, pickle_filename), 'w+') as f:
+        pickle.dump([train_loss, train_acc, val_loss, val_acc, y_true, y_pred], f)
 
 if __name__ == '__main__':
     main()
