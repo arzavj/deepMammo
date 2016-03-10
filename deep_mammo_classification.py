@@ -94,29 +94,6 @@ def eval_val_accuracy(test_net, test_iters=9):
     loss /= test_iters
     return loss, accuracy
 
-def get_val_data():
-    lmdb_env = lmdb.open(val_lmdb)
-    lmdb_txn = lmdb_env.begin()
-    lmdb_cursor = lmdb_txn.cursor()
-    lmdb_cursor.first()
-    datum = caffe_pb2.Datum()
-    y_true = []
-    val_images = []
-
-    for key, value in lmdb_cursor:
-        datum.ParseFromString(value)
-        y_true.append(datum.label)
-        data = caffe.io.datum_to_array(datum)
-        #CxHxW to HxWxC in cv2
-        val_images.append(np.transpose(data, (1,2,0)))
-    return val_images, y_true
-
-def get_val_predictions(deploy_filename, weights_filename):
-    val_images, y_true = get_val_data()
-    classifier = caffe.Classifier(deploy_filename, weights_filename)
-    y_pred = classifier.predict(val_images)
-    return y_true, y_pred
-
 def getOptions():
     '''
     Get command-line options and handle errors.
@@ -156,10 +133,9 @@ def main():
     train_loss, train_acc, val_loss, val_acc, weights = run_solvers(niter, solvers, options.model_name)
     
     
-    y_true, y_pred = get_val_predictions(options.deploy, weights['pretrained'])
     pickle_filename = "%d_iter.%s.pickle" % (niter, options.model_name)
     with open(os.path.join(pickle_dir, pickle_filename), 'w+') as f:
-        pickle.dump([train_loss, train_acc, val_loss, val_acc, y_true, y_pred], f)
+        pickle.dump([train_loss, train_acc, val_loss, val_acc], f)
 
 if __name__ == '__main__':
     main()
