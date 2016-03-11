@@ -111,8 +111,6 @@ def getOptions():
                       help='path name to solver prototoxt', metavar='SOLVER')
     parser.add_option('-n', '--name', dest='model_name', default="alex_dm-fc_8",
                       help='unique identifier for model', metavar='MODEL_NAME')
-    parser.add_option('-d', '--deploy', dest='deploy', default=caffe_root + "models/deep_mammo/alex_deploy.prototxt",
-                      help='path name to deploy prototoxt', metavar='DEPLOY')
     options, args = parser.parse_args()
 
     return options, args
