@@ -1,0 +1,12 @@
+net: "models/deep_mammo/svm_baseline.prototxt"
+test_iter: 1
+test_interval: 10
+display: 10
+base_lr: 0.001
+average_loss: 5
+lr_policy: "fixed"
+max_iter: 10000
+weight_decay: 0.0
+momentum: 0.0
+type: "SGD"
+solver_mode: GPU

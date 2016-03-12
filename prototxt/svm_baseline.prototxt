@@ -1,0 +1,79 @@
+name: "SVMBaseline"
+
+layers {
+  name: "data"
+  type: DATA
+  include {
+    phase: TRAIN
+  }
+  transform_param {
+    crop_size: 224
+    mean_file: "../2x_padding_224x224_dataset/mass_2x_padding_dataset_train_mean.binaryproto"
+    mirror: true
+  }
+  data_param {
+    source: "../2x_padding_224x224_dataset/mass_2x_padding_dataset_train_lmdb"
+    batch_size: 256
+    backend: LMDB
+  }
+  top: "data"
+  top: "label"
+}
+
+layers {
+  name: "data"
+  type: DATA
+  include {
+    phase: TEST
+  }
+  transform_param {
+    crop_size: 224
+    mean_file: "../2x_padding_224x224_dataset/mass_2x_padding_dataset_train_mean.binaryproto"
+    mirror: false
+  }
+  data_param {
+    source: "../2x_padding_224x224_dataset/mass_2x_padding_dataset_val_lmdb"
+    batch_size: 256
+    backend: LMDB
+  }
+  top: "data"
+  top: "label"
+}
+
+layers {
+  bottom: "data"
+  top: "fc"
+  name: "fc"
+  type: INNER_PRODUCT
+  inner_product_param {
+    num_output: 2
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layers {
+  name: "loss"
+  type: HINGE_LOSS
+  bottom: "fc"
+  bottom: "label"
+  top: "loss"
+}
+
+layers {
+  name: "accuracy"
+  type: ACCURACY
+  bottom: "fc"
+  bottom: "label"
+  top: "acc"
+  accuracy_param {
+    top_k: 1
+  }
+}
+

@@ -1,0 +1,17 @@
+net: "models/deep_mammo/cut1_train_val.prototxt"
+test_iter: 10
+test_interval: 200
+display: 50
+base_lr: 0.001
+average_loss: 80
+lr_policy: "step"
+gamma: 0.1
+stepsize: 820
+max_iter: 10000
+weight_decay: 0.001
+momentum: 0.9
+momentum2: 0.999
+snapshot: 10000
+snapshot_prefix: "models/deep_mammo/cut1_deep_mammo"
+type: "Adam"
+solver_mode: GPU

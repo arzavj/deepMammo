@@ -1,0 +1,153 @@
+name: "Cut1VGG"
+layer {
+  name: "data"
+  type: "Data"
+  include {
+    phase: TRAIN
+  }
+ transform_param {
+    crop_size: 224
+    mean_file: "../2x_padding_224x224_dataset/mass_2x_padding_dataset_train_mean.binaryproto"
+    mirror: true
+ }
+ data_param {
+    source: "../../../mnt/2x_augmented_train_lmdb"
+    batch_size: 50
+    backend: LMDB
+  }
+  top: "data"
+  top: "label"
+}
+layer {
+  name: "data"
+  type: "Data"
+  include {
+    phase: TEST
+  }
+ transform_param {
+    crop_size: 224
+    mean_file: "../2x_padding_224x224_dataset/mass_2x_padding_dataset_train_mean.binaryproto"
+    mirror: false
+ }
+ data_param {
+    source: "../2x_padding_224x224_dataset/mass_2x_padding_dataset_val_lmdb"
+    batch_size: 8
+    backend: LMDB
+  }
+  top: "data"
+  top: "label"
+}
+layer {
+  bottom: "data"
+  top: "conv1_1"
+  name: "conv1_1"
+  type: "Convolution" 
+  param {
+    lr_mult: 0.1
+  }
+  convolution_param {
+    num_output: 64
+    pad: 1
+    kernel_size: 3
+  }
+}
+layer {
+  bottom: "conv1_1"
+  top: "conv1_1"
+  name: "relu1_1"
+  type: "ReLU"
+}
+layer {
+  bottom: "conv1_1"
+  top: "conv1_2"
+  name: "conv1_2"
+  type: "Convolution"
+  convolution_param {
+    num_output: 64
+    pad: 1
+    kernel_size: 3
+  }
+  param {
+    lr_mult: 0.1
+    decay_mult: 1
+  }
+}
+layer {
+  bottom: "conv1_2"
+  top: "conv1_2"
+  name: "relu1_2"
+  type: "ReLU"
+}
+layer {
+  bottom: "conv1_2"
+  top: "pool1"
+  name: "pool1"
+  type: "Pooling"
+  pooling_param {
+    pool: MAX
+    kernel_size: 2
+    stride: 2
+  }
+}
+
+layer {
+  bottom: "pool1"
+  top: "avg"
+  name: "avg"
+  type: "Pooling"
+  pooling_param {
+    pool: MAX
+    kernel_size: 56
+    stride: 56
+  }
+}
+
+layer {
+  bottom: "avg"
+  name: "dm-fc2"
+  top: "dm-fc2"
+  type: "InnerProduct"
+  inner_product_param {
+    num_output: 256
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+layer {
+  name: "dm-fc1"
+  bottom: "dm-fc2"
+  top: "dm-fc1"
+  type: "InnerProduct"
+  inner_product_param {
+    num_output: 2
+    weight_filler {
+        type: "xavier"
+    }
+    bias_filler {
+        type: "constant"
+        value: 0
+    }
+  }
+}
+layer {
+  name: "loss"
+  type: "SoftmaxWithLoss"
+  bottom: "dm-fc1"
+  bottom: "label"
+  top: "loss"
+}
+layer {
+  name: "accuracy"
+  type: "Accuracy"
+  bottom: "dm-fc1"
+  bottom: "label"
+  top: "acc"
+  accuracy_param {
+    top_k: 1
+  }
+}

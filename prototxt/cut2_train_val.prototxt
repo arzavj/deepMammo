@@ -1,0 +1,195 @@
+name: "Cut2VGG"
+
+layers {
+  name: "data"
+  type: DATA
+  include {
+    phase: TRAIN
+  }
+ transform_param {
+    crop_size: 224
+    mean_file: "../2x_padding_224x224_dataset/mass_2x_padding_dataset_train_mean.binaryproto"
+    mirror: true
+ }
+ data_param {
+    source: "../2x_padding_224x224_dataset/mass_2x_padding_dataset_train_lmdb"
+    batch_size: 64
+    backend: LMDB
+  }
+  top: "data"
+  top: "label"
+}
+layers {
+  name: "data"
+  type: DATA
+  include {
+    phase: TEST
+  }
+ transform_param {
+    crop_size: 224
+    mean_file: "../2x_padding_224x224_dataset/mass_2x_padding_dataset_train_mean.binaryproto"
+    mirror: false
+ }
+ data_param {
+    source: "../2x_padding_224x224_dataset/mass_2x_padding_dataset_val_lmdb"
+    batch_size: 8
+    backend: LMDB
+  }
+  top: "data"
+  top: "label"
+}
+layers {
+  bottom: "data"
+  top: "conv1_1"
+  name: "conv1_1"
+  type: CONVOLUTION
+  convolution_param {
+    num_output: 64
+    pad: 1
+    kernel_size: 3
+  }
+  param {
+    lr_mult: 0.1
+    decay_mult: 1
+  }
+}
+layers {
+  bottom: "conv1_1"
+  top: "conv1_1"
+  name: "relu1_1"
+  type: RELU
+}
+layers {
+  bottom: "conv1_1"
+  top: "conv1_2"
+  name: "conv1_2"
+  type: CONVOLUTION
+  convolution_param {
+    num_output: 64
+    pad: 1
+    kernel_size: 3
+  }
+  param {
+    lr_mult: 0.1
+    decay_mult: 1
+  }
+}
+layers {
+  bottom: "conv1_2"
+  top: "conv1_2"
+  name: "relu1_2"
+  type: RELU
+}
+layers {
+  bottom: "conv1_2"
+  top: "pool1"
+  name: "pool1"
+  type: POOLING
+  pooling_param {
+    pool: MAX
+    kernel_size: 2
+    stride: 2
+  }
+}
+
+layers {
+  bottom: "pool1"
+  top: "conv2_1"
+  name: "conv2_1"
+  type: CONVOLUTION
+  convolution_param {
+    num_output: 128
+    pad: 1
+    kernel_size: 3
+  }
+  param {
+    lr_mult: 0.1
+    decay_mult: 1
+  }
+}
+layers {
+  bottom: "conv2_1"
+  top: "conv2_1"
+  name: "relu2_1"
+  type: RELU
+}
+layers {
+  bottom: "conv2_1"
+  top: "conv2_2"
+  name: "conv2_2"
+  type: CONVOLUTION
+  convolution_param {
+    num_output: 128
+    pad: 1
+    kernel_size: 3
+  }
+  param {
+    lr_mult: 0.1
+    decay_mult: 1
+  }
+}
+layers {
+  bottom: "conv2_2"
+  top: "conv2_2"
+  name: "relu2_2"
+  type: RELU
+}
+layers {
+  bottom: "conv2_2"
+  top: "pool2"
+  name: "pool2"
+  type: POOLING
+  pooling_param {
+    pool: MAX
+    kernel_size: 2
+    stride: 2
+  }
+}
+
+layers {
+  bottom: "pool2"
+  top: "avg"
+  name: "avg"
+  type: POOLING
+  pooling_param {
+    pool: AVE
+    kernel_size: 56
+    stride: 1
+  }
+}
+
+layers {
+  name: "dm-fc1"
+  bottom: "avg"
+  top: "dm-fc1"
+  type: INNER_PRODUCT
+  inner_product_param {
+    num_output: 2
+    weight_filler {
+        type: "xavier"
+    }
+    bias_filler {
+        type: "constant"
+        value: 0
+    }
+  }
+}
+
+layers {
+  name: "loss"
+  type: SOFTMAX_LOSS
+  bottom: "dm-fc1"
+  bottom: "label"
+  top: "loss"
+}
+layers {
+  name: "accuracy"
+  type: ACCURACY
+  bottom: "dm-fc1"
+  bottom: "label"
+  top: "acc"
+  accuracy_param {
+    top_k: 1
+  }
+}
+
