@@ -1,5 +1,3 @@
 # deepMammo
 
-#### Dataset Curation
-1. Put the original dataset images in .tif format in original_dataset/
-2. Run `python create_dataset.py` which will create a new folder with only mass images.
+Please take a look at the writeup `Jain_Levy_DeepMammo.pdf` to learn more about the dataset preparation, methods used, results and future work. If you have any questions, please feel free to reach out to us! 
